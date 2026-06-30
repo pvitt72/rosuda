@@ -24,10 +24,21 @@ public class Rengine extends Thread {
 			if (iu == null || !iu.equals("yes")) {
 				System.err.println("Cannot find JRI native library!\nPlease make sure that the JRI native library is in a directory listed in java.library.path.\n");
 				e.printStackTrace();
-				System.exit(1);
+				// NOTE: we must NOT call System.exit() here - doing so kills the
+				// whole JVM, which is fatal when JRI is embedded in a container
+				// (application server, plugin host, ...). Instead we leave
+				// jriLoaded == false; the Rengine constructors throw an
+				// UnsatisfiedLinkError so the caller can handle the failure.
+				// Stand-alone apps that previously relied on the exit should
+				// check jriLoaded (or catch the constructor error) themselves.
 			}
         }
     }
+
+	/** thrown by the constructors when the JRI native library could not be loaded. Keeping it as an {@link UnsatisfiedLinkError} preserves source/binary compatibility with callers that already catch that error from native calls. */
+	private static UnsatisfiedLinkError nativeNotLoaded() {
+		return new UnsatisfiedLinkError("JRI native library is not available (System.loadLibrary(\"jri\") failed). Check java.library.path and the R/JRI installation.");
+	}
 
     static Thread mainRThread = null;
 
@@ -107,6 +118,7 @@ public class Rengine extends Thread {
     */
     public Rengine(String[] args, boolean runMainLoop, RMainLoopCallbacks initialCallbacks) {
         super();
+        if (!jriLoaded) throw nativeNotLoaded();
         Rsync=new Mutex();
         died=false;
         alive=false;
@@ -125,6 +137,7 @@ public class Rengine extends Thread {
      */
     public Rengine() {
 	super();
+	if (!jriLoaded) throw nativeNotLoaded();
 	Rsync=new Mutex();
 	died=false;
 	alive=true;
@@ -697,7 +710,7 @@ public class Rengine extends Thread {
     		return rniAssign(sym,x1,0);
 	    }
 	    if (r.Xt == REXP.XT_DOUBLE || r.Xt == REXP.XT_ARRAY_DOUBLE) {
-    		double[] cont = r.rtype == REXP.XT_DOUBLE?new double[]{((Double)r.cont).intValue()}:(double[])r.cont;
+    		double[] cont = r.rtype == REXP.XT_DOUBLE?new double[]{((Double)r.cont).doubleValue()}:(double[])r.cont;
     		long x1 = rniPutDoubleArray(cont);
     		return rniAssign(sym,x1,0);
 	    }
