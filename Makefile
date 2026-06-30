@@ -5,8 +5,13 @@
 # Requires GNU make (or compatible)!
 
 JAPIURL:=http://java.sun.com/j2se/1.4.2/docs/api
+# Default Java source/target level. Was 1.4, but modern JDKs (9+) no longer
+# accept -source/-target 1.4, so the default is now 8 (the oldest level still
+# supported). Override on the command line if needed, e.g. make JDKVER=11.
+# Note: do NOT use 14 or higher when building JRI.jar - 'yield' becomes a
+# reserved identifier and Rengine.java fails to compile.
 ifeq ($(JDKVER),)
-JDKVER:=1.4
+JDKVER:=8
 endif
 JFLAGS+=-encoding UTF-8 -target $(JDKVER) -source $(JDKVER)
 
